@@ -1,0 +1,14 @@
+The main aim of this project is to produce a black and white VGA output for the ATTiny45.
+
+The output will be a clock counting down. The count down will be controlled by the left over I/O line for the device.
+
+Pin Out is shown below.
+
+      RESET --|  |-- VCC
+      CLK I --|  |-- PB2--BW
+COMS--PB4   --|  |-- PB1--HSync
+      GND   --|  |-- PB0--VSync
+
+Clock input will be from a oscillator. Alternativly may explore having a crystal this will have to involve changing the RESET into an I/O line. This is not prefered as it makes programming marginally annoying so will be left untill the main project is working.
+
+The program will work as follows. An interrupt will be fired every time a new horizontal line is required. This will output a line of the display. As there are space concerns numbers will be saved in program memory such that 5 numbers side by side takes up the whole display. Since a horizontal line is 636 pixels in length each number will be roughly 127 pixels wide by 480 pixels.
