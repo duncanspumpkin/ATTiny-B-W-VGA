@@ -75,10 +75,6 @@ RESET:
 	ldi r16,2
 	out OCR1B,r16
 LOOP:
-	nop
-	lpm r16,Z+
-	push r16
-	pop r18
 	rjmp LOOP
 
 ; HORIZONTAL CLOCK TIMING
@@ -100,11 +96,11 @@ VIDEO:
 ;******************************
 	; Setup
 	; Time  = 11 cycles
-	cbi VGAPORT,HSYNC ;2
+	cbi VGAPORT,HSYNC ;1
 	;Save the status register
-	pop r17 ;2
-	pop r17 ;2	
 	push r16 ;2
+	pop r16 ;2
+	pop r16 ;2	
 	push r19 ;2
 	in r17,sreg ;1
 
@@ -205,7 +201,8 @@ activePixOffEnd:
 	nop
 	nop
 	nop
-	nop ;25
+	nop 
+	nop ;26
 	sbi VGAPORT,HSYNC ;2
 ; ****************************************************************************************
 ; **** HORIZONTAL BACK PORCH = 36 CYCLES
@@ -247,18 +244,18 @@ activePixOffEnd:
 	nop
 	ldi r16,512/8 - 2
 ; ****************************************************************************************
-; **** HORIZONTAL ACTIVE LINE = 512 CYCLES / 2 = 256 PIXELS
+; **** HORIZONTAL ACTIVE LINE = 512 CYCLES / 4 = 128 PIXELS
 ; ****************************************************************************************
 vidOut:
 	sbi VGAPORT,BWHITE ;2
 	dec r16;1
-	nop
+	nop ;1
 	cbi VGAPORT,BWHITE ;2
 	brne vidOut ;2/1
 	
 
 novid:
-	pop r18
+	pop r19
 	pop r16
 	out sreg,r17
 	reti
