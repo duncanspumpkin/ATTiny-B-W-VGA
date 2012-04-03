@@ -12,10 +12,13 @@
 .equ VERTICALACTIVESTART = 34 ;0x022
 .equ VERTICALACTIVEEND = 514 ;0x202
 
-.equ OUTPUTFRAME = SRAM_START ;This is 5 bytes long and conatins what we are outputing
+.equ OUTPUTFRAME = SRAM_START ;This is 10 bytes long and conatins what we are outputing
 
 .def VERTLINENOL=r2 ;Permantly used for Vertical line no.
 .def VERTLINENOH=r1
+
+.def TILELINEL=r3
+.def TILELINEH=r4
 
 .org 0
 rjmp RESET
@@ -96,7 +99,7 @@ VIDEO:
 ;******************************
 	; Setup
 	; Time  = 11 cycles
-	cbi VGAPORT,HSYNC ;1
+	cbi VGAPORT,HSYNC ;2
 	;Save the status register
 	push r16 ;2
 	pop r16 ;2
@@ -246,7 +249,49 @@ activePixOffEnd:
 ; ****************************************************************************************
 ; **** HORIZONTAL ACTIVE LINE = 512 CYCLES / 4 = 128 PIXELS
 ; ****************************************************************************************
-vidOut:
+	in r7,VGAPORT ;1
+	bst r8,0 ;1
+	bld r7,BWHITE ;1
+	bst r8,1 ;1
+vidOut:	
+	out VGAPORT,r7 ;1 - 1
+	bld r7,BWHITE ;1
+	lpm r6,Z+ ;3
+	out VGAPORT,r7 ;1 - 2
+	bst r8,2 ;1
+	bld r7,BWHITE ;1 
+	ld ZH,X+ ;2
+	out VGAPORT,r7 ;1 - 3
+	bst r8,3 ;1
+	bld r7,BWHITE ;1
+	ld ZL,X+ ;2
+	out VGAPORT,r7 ;1 - 4
+	bst r8,4 ;1
+	bld r7,BWHITE ;1
+	add ZL,TILELINEL ;1
+	adc ZH,TILELINEH ;1
+	out VGAPORT,r7 ;1 - 5
+	bst r8,5 ;1
+	bld r7,BWHITE ;1
+	nop ;1
+	nop ;1
+	out VGAPORT,r7 ;1 - 6
+	bst r8,6 ;1
+	bld r7,BWHITE ;1
+	nop ;1
+	dec r16 ;1
+	out VGAPORT,r7 ;1 - 7
+	bst r8,7 ;1
+	bld r7,BWHITE ;1
+	mov r8,r6 ;1
+	bst r8,0 ;1
+	out VGAPORT,r7 ;1 - 8
+	bld r7,BWHITE ;1
+	bst r8,1 ;1
+	brne vidOut ;2/1
+
+
+vidOut2:
 	sbi VGAPORT,BWHITE ;2
 	dec r16;1
 	nop ;1
