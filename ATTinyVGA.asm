@@ -12,13 +12,14 @@
 .equ VERTICALACTIVESTART = 34 ;0x022
 .equ VERTICALACTIVEEND = 514 ;0x202
 
-.equ OUTPUTFRAME = SRAM_START ;This is 10 bytes long and conatins what we are outputing
+.equ OUTPUTFRAME = SRAM_START ;This is 10 bytes long and address to what we are outputing
 
-.def VERTLINENOL=r2 ;Permantly used for Vertical line no.
+.def VERTLINENOL=r0 ;Permantly used for Vertical line no.
 .def VERTLINENOH=r1
 
-.def TILELINEL=r3
-.def TILELINEH=r4
+.def TILELINEL=r2
+.def TILELINEH=r3
+;Register r4,r6-r8 & r17 are also used by interrupt do not use.
 
 .org 0
 rjmp RESET
@@ -210,66 +211,81 @@ activePixOffEnd:
 ; ****************************************************************************************
 ; **** HORIZONTAL BACK PORCH = 36 CYCLES
 ; ****************************************************************************************
-	brts novidj;2/1
-	rjmp novid
-novidj:
+	brts novid1;2/1
+	rjmp novid ;2 Doesn't matter as this wont be run if there is vid
+novid1:
+	;11 cycles
+	inc r4 ;1
+	ldi r16,0x5;1
+	cp r4,r16 ;1
+	breq newLine;2/1
+	nop ;1
+	nop ;1
+	nop ;1
+	nop ;1
+	nop ;1
+	rjmp noNewLine ;2
+newLine:
+	clr r4 ;1
+	ldi r16,low(TILELINE2-TILELINE1);1
+	ldi r19,high(TILELINE2-TILELINE1);1
+	add TILELINEL,r16 ;1
+	adc TILELINEH,r19 ;1
+noNewLine:
+	
+	;11 cycles
+	tst VERTLINENOL ;1
+	breq  resetLinesC1;2/1 branch if zero
+	nop ;1
+	nop ;1
+	nop ;1
+	nop ;1
+	nop ;1
+	nop ;1
+	nop ;1
+	rjmp noresetLines ;2
+resetLinesC1:
+	tst VERTLINENOH ;1
+	breq resetLinesC2 ;2/1
+	nop	
 	nop
 	nop
 	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	ldi r16,512/8 - 2
+	rjmp noresetLines ;2
+resetLinesC2:
+	clr r4 ;1
+	ldi r16,low(TILELINE1);1
+	ldi r19,high(TILELINE1);1
+	mov TILELINEL,r16;1
+	mov TILELINEH,r19;1
+noresetLines:
+	;Check NOPS should be over 36 remember black bands.
+	ldi r16,5 ;1 There are 512 cycles we only output on 500 with 5 characters
 ; ****************************************************************************************
 ; **** HORIZONTAL ACTIVE LINE = 512 CYCLES / 4 = 128 PIXELS
 ; ****************************************************************************************
 	in r7,VGAPORT ;1
 	bst r8,0 ;1
 	bld r7,BWHITE ;1
-	bst r8,1 ;1
 vidOut:	
-	out VGAPORT,r7 ;1 - 1
+	out VGAPORT,r7 ;1 - 1	
+	bst r8,1 ;1
 	bld r7,BWHITE ;1
-	lpm r6,Z+ ;3
-	out VGAPORT,r7 ;1 - 2
 	bst r8,2 ;1
-	bld r7,BWHITE ;1 
-	ld ZH,X+ ;2
+	nop ;1
+	out VGAPORT,r7 ;1 - 2
+	lpm r6,Z+ ;3
+	bld r7,BWHITE ;1
 	out VGAPORT,r7 ;1 - 3
 	bst r8,3 ;1
 	bld r7,BWHITE ;1
-	ld ZL,X+ ;2
+	nop ;1
+	nop ;1
 	out VGAPORT,r7 ;1 - 4
 	bst r8,4 ;1
 	bld r7,BWHITE ;1
-	add ZL,TILELINEL ;1
-	adc ZH,TILELINEH ;1
+	nop ;1
+	nop ;1
 	out VGAPORT,r7 ;1 - 5
 	bst r8,5 ;1
 	bld r7,BWHITE ;1
@@ -279,29 +295,76 @@ vidOut:
 	bst r8,6 ;1
 	bld r7,BWHITE ;1
 	nop ;1
-	dec r16 ;1
+	nop ;1
 	out VGAPORT,r7 ;1 - 7
 	bst r8,7 ;1
 	bld r7,BWHITE ;1
 	mov r8,r6 ;1
-	bst r8,0 ;1
-	out VGAPORT,r7 ;1 - 8
-	bld r7,BWHITE ;1
-	bst r8,1 ;1
-	brne vidOut ;2/1
-
-
-vidOut2:
-	sbi VGAPORT,BWHITE ;2
-	dec r16;1
 	nop ;1
-	cbi VGAPORT,BWHITE ;2
-	brne vidOut ;2/1
-	
-
+	out VGAPORT,r7 ;1 - 8
+	bst r8,0 ;1
+	bld r7,BWHITE ;1
+	nop ;1
+	nop ;1
+	out VGAPORT,r7 ;1 - 9
+	bst r8,1 ;1
+	bld r7,BWHITE ;1
+	nop ;1
+	nop ;1
+	out VGAPORT,r7 ;1 - 10
+	bst r8,2 ;1
+	bld r7,BWHITE ;1
+	nop ;1
+	nop ;1
+	out VGAPORT,r7 ;1 - 11
+	bst r8,3 ;1
+	bld r7,BWHITE ;1
+	bst r8,4 ;1
+	nop ;1
+	out VGAPORT,r7 ;1 - 12
+	bld r7,BWHITE ;1
+	lpm r6,Z+ ;3
+	out VGAPORT,r7 ;1 - 13
+	bst r8,5
+	bld r7,BWHITE ;1
+	ld ZL,X+ ;2
+	out VGAPORT,r7 ;1 - 14
+	bst r8,6 ;1
+	bld r7,BWHITE ;1
+	ld ZH,X+ ;2
+	out VGAPORT,r7 ;1 - 15
+	bst r8,7;1
+	bld r7,BWHITE ;1
+	mov r8,r6
+	bst r8,0;1
+	out VGAPORT,r7 ;1 - 16
+	bld r7,BWHITE ;1
+	bst r8,1
+	add ZL,TILELINEL ;1
+	adc ZH,TILELINEH ;1	
+	out VGAPORT,r7 ;1 - 17
+	bld r7,BWHITE ;1
+	bst r8,2 ;1
+	dec r16 ;1
+	nop ;1
+	out VGAPORT,r7 ;1 - 18
+	bld r7,BWHITE ;1
+	lpm r6,Z+ ;3
+	out VGAPORT,r7 ;1 - 19
+	bst r8,3 ;1
+	bld r7,BWHITE ;1 
+	mov r8,r6 ;1
+	bst r8,0 ;1
+	out VGAPORT,r7 ;1 - 20
+	bld r7,BWHITE ;1
+	breq noVid ;2/1
+	rjmp vidOut ;2
 novid:
-	pop r19
-	pop r16
-	out sreg,r17
-	reti
+	;Check that we have the final black band Should also reset output to off
+	pop r19 ;2
+	pop r16 ;2
+	out sreg,r17 ;1
+	reti ;4
 
+TILELINE1:
+TILELINE2:
