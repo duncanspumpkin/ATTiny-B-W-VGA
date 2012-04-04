@@ -11,8 +11,8 @@
 .equ VERTICALSYNCPULSE = 2 ;0x002
 ;Vertical should start at 34 but since we are only outputing 20 pixels 
 ; of 5 times size 100 we start a bit later
-.equ VERTICALACTIVESTART = 34 + (514-34-100)/2 ;0x022
-.equ VERTICALACTIVEEND = 514 - (514-34-100)/2 ;0x202
+.equ VERTICALACTIVESTART = 34 + (514-34-100)/2-1 ;0x022
+.equ VERTICALACTIVEEND = 514 - (514-34-100)/2-1 ;0x202
 
 .equ OUTPUTFRAME = SRAM_START ;This is 10 bytes long and address to what we are outputing
 
@@ -89,7 +89,8 @@ RESET:
 	st X+,ZH
 	
 	;Setup Output stuff
-	clr r4 ;1
+	ser r16;
+	mov r4,r16 ;1
 	clr TILELINEL;1
 	clr TILELINEH;1
 
@@ -103,13 +104,13 @@ RESET:
 	ldi r18,0
 LOOPRESTART:	
 	ldi r19,60
-	sbrs r18,6
+	sbrc r18,3
 	 clr r18
 LOOP:
 	in r16,TCNT1
-	ldi r17,0x30
+	ldi r17,0x1C
 	cp r17,r16
-	brne LOOP
+	brlo LOOP
 	ldi r16,0
 	ldi r17,0
 	cp VERTLINENOL,r16
@@ -122,7 +123,7 @@ LOOP:
 	ldi r16,low(2*(TILE2-TILE1))
 	ldi r17,high(2*(TILE2-TILE1))
 	ldi ZL,low(2*(TILE1))
-	ldi ZH,high(2*(TILE2))
+	ldi ZH,high(2*(TILE1))
 	mov r13,r18
 offsetmult:
 	tst r13
@@ -158,9 +159,9 @@ VIDEO:
 	; Time  = 11 cycles
 	cbi VGAPORT,HSYNC ;2
 	;Save the status register
+	pop REGSTORE;2
+	pop REGSTORE ;2
 	push r16 ;2
-	pop r16 ;2
-	pop r16 ;2	
 	push r19 ;2
 	in REGSTORE,sreg ;1
 
@@ -219,14 +220,22 @@ activePixOn:
 activePixOnEnd:
 
 	; ACTIVE PIXELS OFF AT LINE 514
-	; Time = 7 Cyclces
+	; Time = 10 Cyclces
 	ldi r16,low(VERTICALACTIVEEND) ;1
 	ldi r19,high(VERTICALACTIVEEND) ;1
 	cp r16,VERTLINENOL ;1
 	cpc r19,VERTLINENOH ;1
 	brlo activePixOff ;2/1
+	 nop
+	 nop
+	 nop
+	 nop
 	 rjmp activePixOffEnd
 activePixOff:
+	ser r16	;1
+	mov r4,r16 ;1
+	clr TILELINEL;1
+	clr TILELINEH;1
 	clt ;1
 activePixOffEnd:
 
@@ -236,34 +245,16 @@ activePixOffEnd:
 	out TCCR1,r16 ;1
 	ldi r16,(1<<CS10)|(1<<CS11)|(1<<CTC1);1
 	out TCCR1,r16 ;1
-	; 49 Cycles
-	
-	;This should be moved into end pixel line above
-	;9 cycles
-	tst VERTLINENOL ;1
-	breq  resetLinesC1;2/1 branch if zero
-	nop ;1
-	nop ;1
-	nop ;1
-	nop ;1
-	nop ;1
-	rjmp noresetLines ;2
-resetLinesC1:
-	tst VERTLINENOH ;1
-	breq resetLinesC2 ;2/1
-	nop	
-	nop
-	rjmp noresetLines ;2
-resetLinesC2:
-	clr r4 ;1
-	clr TILELINEL;1
-	clr TILELINEH;1
-noresetLines:
-	
+	; 49 Cycles	
 	mov r9,XL ;1
 	mov r10,XH;1
 	mov r11,ZL;1
 	mov r12,ZH;1
+	nop
+	nop
+	nop
+	nop
+	nop
 	nop
 	nop
 	nop
@@ -281,14 +272,14 @@ noresetLines:
 ; ****************************************************************************************
 ; **** HORIZONTAL BACK PORCH = 36 CYCLES
 ; ****************************************************************************************
-	brts novid1;2/1
+	brts dispvid;2/1
 	rjmp novid ;2 Doesn't matter as this wont be run if there is vid
-novid1:
+dispvid:
 	;11 cycles
 	inc r4 ;1
 	ldi r16,0x5;1
 	cp r4,r16 ;1
-	breq newLine;2/1
+	brsh newLine;2/1
 	nop ;1
 	nop ;1
 	nop ;1
@@ -310,7 +301,8 @@ noNewLine:
 	nop
 	nop
 	nop
-	pop r19 ;2
+	
+	
 
 	ldi XL,low(OUTPUTFRAME) ;1
 	ldi XH,high(OUTPUTFRAME) ;1
@@ -425,6 +417,7 @@ novid:
 	mov XH,r10;1
 	mov ZL,r11;1
 	mov ZH,r12;1
+	pop r19 ;2
 	pop r16 ;2
 	out sreg,REGSTORE ;1
 	reti ;4
@@ -451,7 +444,7 @@ TILELINE3:
 	0xAA,0x01,0xA0,\
 	0xAA,0x01,0xA0,\
 	0xAA,0x01,0xA0,\
-	0xAA,0x01,0xA0
+	0xAA,0x01,0xAF
 TILE2:
 .db 0x10,0xCB,0xA0,\
  	0xAA,0x10,0xA0,\
