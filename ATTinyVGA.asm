@@ -21,7 +21,8 @@
 
 .def TILELINEL=r2
 .def TILELINEH=r3
-;Register r4,r6-r8 & r17 are also used by interrupt do not use.
+.def REGSTORE=r5
+;Register r0-r12 are used by interrupt do not use.
 
 .org 0
 rjmp RESET
@@ -97,8 +98,44 @@ RESET:
 	ldi r16,2
 	out OCR1B,r16	
 	sei
+
+
+	ldi r18,0
+LOOPRESTART:	
+	ldi r19,60
+	sbrs r18,6
+	 clr r18
 LOOP:
-	rjmp LOOP
+	in r16,TCNT1
+	ldi r17,0x30
+	cp r17,r16
+	brne LOOP
+	ldi r16,0
+	ldi r17,0
+	cp VERTLINENOL,r16
+	cpc VERTLINENOH,r17
+	brne LOOP
+	dec r19
+	brne LOOP
+	ldi xl,low(OUTPUTFRAME)
+	ldi xh,high(OUTPUTFRAME)
+	ldi r16,low(2*(TILE2-TILE1))
+	ldi r17,high(2*(TILE2-TILE1))
+	ldi ZL,low(2*(TILE1))
+	ldi ZH,high(2*(TILE2))
+	mov r13,r18
+offsetmult:
+	tst r13
+	breq offsetmultend
+	add ZL,r16
+	adc ZH,r17
+	dec r13
+	rjmp offsetmult
+offsetmultend:
+	st X+,ZL
+	st X+,ZH
+	inc r18
+	rjmp LOOPRESTART
 
 ; HORIZONTAL CLOCK TIMING
 ;HFP:12 (0-11)
@@ -125,7 +162,7 @@ VIDEO:
 	pop r16 ;2
 	pop r16 ;2	
 	push r19 ;2
-	in r17,sreg ;1
+	in REGSTORE,sreg ;1
 
 	;Increment line
 	; TIME = 3 cycles
@@ -200,7 +237,8 @@ activePixOffEnd:
 	ldi r16,(1<<CS10)|(1<<CS11)|(1<<CTC1);1
 	out TCCR1,r16 ;1
 	; 49 Cycles
-
+	
+	;This should be moved into end pixel line above
 	;9 cycles
 	tst VERTLINENOL ;1
 	breq  resetLinesC1;2/1 branch if zero
@@ -221,7 +259,11 @@ resetLinesC2:
 	clr TILELINEL;1
 	clr TILELINEH;1
 noresetLines:
-
+	
+	mov r9,XL ;1
+	mov r10,XH;1
+	mov r11,ZL;1
+	mov r12,ZH;1
 	nop
 	nop
 	nop
@@ -230,10 +272,6 @@ noresetLines:
 	nop
 	nop
 	nop
-	nop
-	nop
-	nop
-	nop ;Add in code for moving Z and X regs
 	nop
 	nop
 	nop
@@ -272,9 +310,7 @@ noNewLine:
 	nop
 	nop
 	nop
-	nop
-	nop
-	
+	pop r19 ;2
 
 	ldi XL,low(OUTPUTFRAME) ;1
 	ldi XH,high(OUTPUTFRAME) ;1
@@ -286,11 +322,10 @@ noNewLine:
 	ldi r16,5 ;1 There are 512 cycles we only output on 500 with 5 characters
 	in r7,VGAPORT ;1
 	bst r8,0 ;1
-	nop ;1
+	bld r7,BWHITE ;1
 ; ****************************************************************************************
 ; **** HORIZONTAL ACTIVE LINE = 512 CYCLES / 4 = 128 PIXELS
 ; ****************************************************************************************	
-	bld r7,BWHITE ;1
 vidOut:	
 	out VGAPORT,r7 ;1 - 1	
 	bst r8,1 ;1
@@ -386,9 +421,12 @@ vidOut:
 novid:
 	cbi VGAPORT,BWHITE ;2
 	;Check that we have the final black band Should also reset output to off
-	pop r19 ;2
+	mov XL,r9 ;1
+	mov XH,r10;1
+	mov ZL,r11;1
+	mov ZH,r12;1
 	pop r16 ;2
-	out sreg,r17 ;1
+	out sreg,REGSTORE ;1
 	reti ;4
 
 TILE1:
