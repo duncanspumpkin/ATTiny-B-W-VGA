@@ -2,7 +2,7 @@
 
 .equ BWHITE=2
 .equ HSYNC=1
-.equ VSYNC=0
+.equ VSYNC=0 ;This is used by data input and should be changed to 4 if we want to use the usi
 .equ VGADDR=DDRB
 .equ VGAPIN=PINB
 .equ VGAPORT=PORTB
@@ -75,8 +75,8 @@ RESET:
 	ldi zh,high(2*TILE2)
 	st X+,ZL
 	st X+,ZH	
-	ldi zl,low(2*TILE3)
-	ldi zh,high(2*TILE3)
+	ldi zl,low(2*TILE11)
+	ldi zh,high(2*TILE11)
 	st X+,ZL
 	st X+,ZH	
 	ldi zl,low(2*TILE4)
@@ -100,44 +100,134 @@ RESET:
 	out OCR1B,r16	
 	sei
 
-
-	ldi r18,0
+	; We have now set up all basic output stuff and can focus on doing our output.
+	
+	ldi r18,1
+	; Allocate 4 variables for timer output
+	push r18
+	push r18
+	push r18
+	push r18
 LOOPRESTART:	
 	ldi r19,60
-	sbrc r18,3
-	 clr r18
 LOOP:
+	; We need to decrement a counter every second
 	in r16,TCNT1
 	ldi r17,0x1C
 	cp r17,r16
+	; First check to see if output is on a quick cycle
 	brlo LOOP
 	ldi r16,0
 	ldi r17,0
 	cp VERTLINENOL,r16
 	cpc VERTLINENOH,r17
+	; Check to see if we have finished a frame 1/60s
 	brne LOOP
 	dec r19
 	brne LOOP
-	ldi xl,low(OUTPUTFRAME)
-	ldi xh,high(OUTPUTFRAME)
-	ldi r16,low(2*(TILE2-TILE1))
-	ldi r17,high(2*(TILE2-TILE1))
-	ldi ZL,low(2*(TILE1))
-	ldi ZH,high(2*(TILE1))
-	mov r13,r18
-offsetmult:
-	tst r13
-	breq offsetmultend
-	add ZL,r16
-	adc ZH,r17
-	dec r13
-	rjmp offsetmult
-offsetmultend:
-	st X+,ZL
-	st X+,ZH
-	inc r18
+	; A whole second has passed so we need to change the output.
+	rcall decTime ;Decrements the time
+
+	rcall outTime ;Changes memory to the current time
+
 	rjmp LOOPRESTART
 
+decTime:
+	pop xl
+	pop xh
+	pop r16 ;hx:xx
+	pop r17 ;xh:xx
+	pop r18 ;xx:mx
+	pop r19 ;xx:xm
+	
+	dec r19
+	brbc 2,decTimeEnd ;End if not negative
+	dec r18
+	brbc 2,decTimeEndLMin ;End if not negative
+	dec r17
+	brbc 2,decTimeEndHMin
+	dec r16
+	brbc 2,decTimeEndLHour
+	ldi r17,0x0
+	ldi r16,0x0
+	ldi r18,0x0
+	ldi r19,0x0
+	rjmp decTimeEnd
+
+decTimeEndLHour:
+	ldi r17,0x9
+decTimeEndHMin:
+	ldi r18,0x5
+decTimeEndLMin:
+	ldi r19,0x9
+decTimeEnd:
+
+	push r19
+	push r18
+	push r17
+	push r16
+	push xh
+	push xl
+	ret
+
+
+outTime:
+	pop yl
+	pop yh
+	
+	ldi xl,low(OUTPUTFRAME)
+	ldi xh,high(OUTPUTFRAME)
+
+	ldi ZL,low(2*(TILE0))
+	ldi ZH,high(2*(TILE0))
+	pop r18 ;hx:xx
+	rcall offsetmult
+	
+	st x+,ZL
+	st x+,ZH
+
+	ldi ZL,low(2*(TILE0))
+	ldi ZH,high(2*(TILE0))
+	pop r18 ;xh:xx
+	rcall offsetmult	
+	
+	st x+,ZL
+	st x+,ZH
+	
+	ldi xl,low(OUTPUTFRAME+3)
+	ldi xh,high(OUTPUTFRAME+3)
+	ldi ZL,low(2*(TILE0))
+	ldi ZH,high(2*(TILE0))
+	pop r18 ;xx:mx
+	rcall offsetmult	
+	
+	st x+,ZL
+	st x+,ZH
+	
+	ldi ZL,low(2*(TILE0))
+	ldi ZH,high(2*(TILE0))
+	pop r18 ;xx:xm
+	rcall offsetmult	
+	
+	st x+,ZL
+	st x+,ZH	
+	
+	push yh
+	push yl
+	ret
+
+offsetmult:
+	ldi r16,low(2*(TILE2-TILE1))
+	ldi r17,high(2*(TILE2-TILE1))
+offsetmultloop:
+	tst r18
+	breq offsetmultEnd
+	add ZL,r16
+	adc ZH,r17
+	dec r18
+	rjmp offsetmultloop
+offsetmultEnd:
+	ret
 ; HORIZONTAL CLOCK TIMING
 ;HFP:12 (0-11)
 ;HSP:76 (12-87)
@@ -422,6 +512,28 @@ novid:
 	out sreg,REGSTORE ;1
 	reti ;4
     
+
+TILE0:
+.db 0x00, 0x00, 0x00, \
+    0x00, 0xF0, 0x00, \
+    0x00, 0xFC, 0x01, \
+    0x00, 0x8C, 0x03, \
+    0x00, 0x06, 0x03, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x06, \
+    0x00, 0x06, 0x03, \
+    0x00, 0x8C, 0x03, \
+    0x00, 0xFC, 0x01, \
+    0x00, 0xF0, 0x00, \
+    0x00, 0x00, 0x00, \
+    0x00, 0x00, 0x00, \
+    0x00, 0x00, 0x00, \
+    0x00, 0x00, 0x00
 TILE1:
 TILELINE1:
 .db 0x00, 0x00, 0x00, \
@@ -609,27 +721,6 @@ TILE9:
     0x00, 0xC7, 0x01, \
     0x00, 0xFF, 0x00, \
     0x00, 0x7C, 0x00, \
-    0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00, \
-    0x00, 0x00, 0x00
-TILE10:
-.db 0x00, 0x00, 0x00, \
-    0x00, 0xF0, 0x00, \
-    0x00, 0xFC, 0x01, \
-    0x00, 0x8C, 0x03, \
-    0x00, 0x06, 0x03, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x06, \
-    0x00, 0x06, 0x03, \
-    0x00, 0x8C, 0x03, \
-    0x00, 0xFC, 0x01, \
-    0x00, 0xF0, 0x00, \
     0x00, 0x00, 0x00, \
     0x00, 0x00, 0x00, \
     0x00, 0x00, 0x00, \
