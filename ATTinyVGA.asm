@@ -180,7 +180,8 @@ outTime:
 
 	ldi ZL,low(2*(TILE0))
 	ldi ZH,high(2*(TILE0))
-	pop r18 ;hx:xx
+	pop r21
+	mov r18,r21 ;hx:xx
 	rcall offsetmult
 	
 	st x+,ZL
@@ -188,17 +189,19 @@ outTime:
 
 	ldi ZL,low(2*(TILE0))
 	ldi ZH,high(2*(TILE0))
-	pop r18 ;xh:xx
+	pop r22
+	mov r18,r22 ;xh:xx
 	rcall offsetmult	
 	
 	st x+,ZL
 	st x+,ZH
 	
-	ldi xl,low(OUTPUTFRAME+3)
-	ldi xh,high(OUTPUTFRAME+3)
+	ldi xl,low(OUTPUTFRAME+6);3*2 
+	ldi xh,high(OUTPUTFRAME+6)
 	ldi ZL,low(2*(TILE0))
 	ldi ZH,high(2*(TILE0))
-	pop r18 ;xx:mx
+	pop r23 ;xx:mx
+	mov r18,r23
 	rcall offsetmult	
 	
 	st x+,ZL
@@ -206,12 +209,17 @@ outTime:
 	
 	ldi ZL,low(2*(TILE0))
 	ldi ZH,high(2*(TILE0))
-	pop r18 ;xx:xm
+	pop r24
+	mov r18,r24 ;xx:xm
 	rcall offsetmult	
 	
 	st x+,ZL
 	st x+,ZH	
 	
+	push r24
+	push r23
+	push r22
+	push r21
 	push yh
 	push yl
 	ret
